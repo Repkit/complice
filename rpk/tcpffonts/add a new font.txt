@@ -1,0 +1,2 @@
+log to docker container and run
+$ /path/to/tcpdf/tools/tcpdf_addfont.php -i /path/to/fonts/your_font.ttf

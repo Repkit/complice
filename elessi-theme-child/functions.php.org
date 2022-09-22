@@ -1,0 +1,104 @@
+<?php
+//
+// Recommended way to include parent theme styles.
+// (Please see http://codex.wordpress.org/Child_Themes#How_to_Create_a_Child_Theme)
+//  
+add_action('wp_enqueue_scripts', 'theme_enqueue_styles', 998);
+
+function theme_enqueue_styles() {
+    wp_enqueue_style('elessi-style', get_template_directory_uri() . '/style.css');
+    wp_enqueue_style('elessi-child-style', get_stylesheet_uri());
+}
+
+
+/**
+ * Reorder product data tabs
+ */
+add_filter( 'woocommerce_product_tabs', 'woo_reorder_tabs', 98 );
+function woo_reorder_tabs( $tabs ) {
+
+	$tabs['descriere']['priority'] = 5;			// Descriere first
+	$tabs['specifications']['priority'] = 10;			// Detalii cadou second
+	$tabs['additional_information']['priority'] = 15;	// Additional information third
+	$tabs['reviews']['priority'] = 20;			// Reviews last
+
+
+	return $tabs;
+}
+
+add_action( 'woocommerce_after_shop_loop_item', 'wc_add_short_description' );
+/**
+ * WooCommerce, Add Short Description to Products on Shop Page
+ */
+function wc_add_short_description() {
+	global $product;
+
+	?>
+        <div itemprop="description">
+            <?php echo apply_filters( 'woocommerce_short_description', $product->post-> post_excerpt ) ?>
+        </div>
+	<?php
+}
+
+add_filter('nasa_max_depth_main_menu', 'custom_max_depth_menu');
+
+function custom_max_depth_menu($depth) {
+
+return 4; // Return max depth menu – Default is 3
+
+}
+
+/** Add shop page to breadcrumbs structure**/
+add_filter( 'woocommerce_get_breadcrumb', function($crumbs, $Breadcrumb){
+        $shop_page_id = wc_get_page_id('shop'); //Get the shop page ID
+        if($shop_page_id > 0 && !is_shop()) { //Check we got an ID (shop page is set). Added check for is_shop to prevent Home / Shop / Shop as suggested in comments
+            $new_breadcrumb = [
+                _x( 'Toate Experientele', 'breadcrumb', 'woocommerce' ), //Title
+                get_permalink(wc_get_page_id('shop')) // URL
+            ];
+            array_splice($crumbs, 1, 0, [$new_breadcrumb]); //Insert a new breadcrumb after the 'Home' crumb
+        }
+        return $crumbs;
+    }, 10, 2 );
+
+/*Custom checkout fileds display*/
+add_filter('woocommerce_order_details_after_order_table','th34r_filter_display_custom_field_in_thnku_page', 10, 1 ); 
+function th34r_filter_display_custom_field_in_thnku_page( $order) {
+    $field_array = array('Formula de inceput:' => 'voucher_start', 'Formula de incheiere:' => 'voucher_end', 'Metoda de livrare:' => 'metoda_livrare', 'Destinatar:' => 'email_to', 'Email beneficiar:' => 'email_beneficiar', 'Moment livrare:' => 'moment_livrare');
+    $order_id = $order->get_id();
+    ?>
+      <table>
+        <h4 style="font-size:17px;">Detalii comanda</h4>
+          <?php
+           foreach ($field_array as $label => $name) {
+              $value = get_post_meta($order_id,$name,true) ;
+              if($value) { ?>
+                <tr>
+                   <td style="font-size:14px;"><b><?php echo $label; ?></b></td>
+                   <td style="font-size:14px;"><?php echo $value; ?></td>
+                </tr> <?php
+              }
+            } ?>
+      </table>
+    <?php
+}
+/*Automated NEW Badge*/
+add_filter('nasa_badges', 'childtheme_custom_badges', 5);
+function childtheme_custom_badges($badges) {
+    global $product;
+    
+    $product_id = $product->get_id();
+    $custom_badge = '';
+
+    /**
+     * Default New Badge
+     */
+    $newness_days = 60;
+    $created = strtotime($product->get_date_created());
+    $badge_hot = nasa_get_product_meta_value($product_id, '_bubble_hot');
+    if (!$badge_hot && ((time() - (60 * 60 * 24 * $newness_days)) < $created)) {
+        $custom_badge .= '' . esc_html__( 'New', 'elessi-theme' ) . '';
+    }
+    
+    return $custom_badge . $badges;
+}

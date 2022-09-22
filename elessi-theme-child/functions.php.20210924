@@ -1,0 +1,396 @@
+<?php
+//
+// Recommended way to include parent theme styles.
+// (Please see http://codex.wordpress.org/Child_Themes#How_to_Create_a_Child_Theme)
+//  
+add_action('wp_enqueue_scripts', 'theme_enqueue_styles', 998);
+
+function theme_enqueue_styles() {
+    wp_enqueue_style('elessi-style', get_template_directory_uri() . '/style.css');
+    wp_enqueue_style('elessi-child-style', get_stylesheet_uri());
+}
+
+
+/**
+ * Reorder product data tabs
+ */
+add_filter( 'woocommerce_product_tabs', 'woo_reorder_tabs', 98 );
+function woo_reorder_tabs( $tabs ) {
+
+	$tabs['descriere']['priority'] = 5;			// Descriere first
+	$tabs['specifications']['priority'] = 10;			// Detalii cadou second
+	$tabs['additional_information']['priority'] = 15;	// Additional information third
+	$tabs['reviews']['priority'] = 20;			// Reviews last
+
+
+	return $tabs;
+}
+
+add_action( 'woocommerce_after_shop_loop_item', 'wc_add_short_description' );
+/**
+ * WooCommerce, Add Short Description to Products on Shop Page
+ */
+function wc_add_short_description() {
+	global $product;
+
+	?>
+        <div itemprop="description">
+            <?php echo apply_filters( 'woocommerce_short_description', $product->post-> post_excerpt ) ?>
+        </div>
+	<?php
+}
+
+add_filter('nasa_max_depth_main_menu', 'custom_max_depth_menu');
+
+function custom_max_depth_menu($depth) {
+
+return 4; // Return max depth menu – Default is 3
+
+}
+
+/** Add shop page to breadcrumbs structure**/
+add_filter( 'woocommerce_get_breadcrumb', function($crumbs, $Breadcrumb){
+        $shop_page_id = wc_get_page_id('shop'); //Get the shop page ID
+        if($shop_page_id > 0 && !is_shop()) { //Check we got an ID (shop page is set). Added check for is_shop to prevent Home / Shop / Shop as suggested in comments
+            $new_breadcrumb = [
+                _x( 'Toate Experientele', 'breadcrumb', 'woocommerce' ), //Title
+                get_permalink(wc_get_page_id('shop')) // URL
+            ];
+            array_splice($crumbs, 1, 0, [$new_breadcrumb]); //Insert a new breadcrumb after the 'Home' crumb
+        }
+        return $crumbs;
+    }, 10, 2 );
+
+/*Custom checkout fileds display*/
+add_filter('woocommerce_order_details_after_order_table','th34r_filter_display_custom_field_in_thnku_page', 10, 1 ); 
+function th34r_filter_display_custom_field_in_thnku_page( $order) {
+    $field_array = array(
+        'Formula de inceput:' => 'voucher_start', 
+        'Formula de incheiere:' => 'voucher_end', 
+        'Metoda de livrare:' => 'metoda_livrare', 
+        'Destinatar:' => 'email_to', 
+        'Email beneficiar:' => 'email_beneficiar', 
+        'Data livrare:' => 'moment_livrare',
+        'Ora livrare:' => 'ora_livrare'
+    );
+    $order_id = $order->get_id();
+    ?>
+      <table>
+        <h4 style="font-size:17px;">Detalii comanda</h4>
+          <?php
+           foreach ($field_array as $label => $name) {
+              $value = get_post_meta($order_id,$name,true) ;
+              if($value) { ?>
+                <tr>
+                   <td style="font-size:14px;"><b><?php echo $label; ?></b></td>
+                   <td style="font-size:14px;"><?php echo $value; ?></td>
+                </tr> <?php
+              }
+            } ?>
+      </table>
+    <?php
+}
+/*Automated NEW Badge*/
+add_filter('nasa_badges', 'childtheme_custom_badges', 5);
+function childtheme_custom_badges($badges) {
+    global $product;
+    
+    $product_id = $product->get_id();
+    $custom_badge = '';
+
+    /**
+     * Default New Badge
+     */
+    $newness_days = 60;
+    $created = strtotime($product->get_date_created());
+    $badge_hot = nasa_get_product_meta_value($product_id, '_bubble_hot');
+    if (!$badge_hot && ((time() - (60 * 60 * 24 * $newness_days)) < $created)) {
+        $custom_badge .= '' . esc_html__( 'New', 'elessi-theme' ) . '';
+    }
+    
+    return $custom_badge . $badges;
+}
+
+//---RPK START---//
+add_filter( 'woocommerce_product_data_tabs', 'add_my_custom_product_data_tab' );
+function add_my_custom_product_data_tab( $product_data_tabs ) {
+	$product_data_tabs['my-custom-tab'] = array(
+		'label' => __( 'Voucher', 'my_text_domain' ),
+		'target' => 'my_custom_product_data',
+	);
+	return $product_data_tabs;
+}
+
+add_action( 'woocommerce_product_data_panels', 'add_my_custom_product_data_fields' );
+function add_my_custom_product_data_fields() {
+	global $woocommerce, $post;
+	?>
+	<div id="my_custom_product_data" class="panel woocommerce_options_panel">
+		<?php
+        $script = <<<RPK
+        
+        <script type="text/javascript">
+
+        const btnvpreview = jQuery("#btn_preview_voucher");
+        function previewvoucher()
+        {
+            jQuery("#vintro").val(jQuery("#_voucher_intro").val());
+            jQuery("#vdesc").val(tinymce.get("_voucher_desc").getContent());
+            jQuery("#voutro").val(jQuery("#_voucher_outro").val());
+            jQuery("#vsupplier").val(jQuery("#_voucher_supplier").val());
+            jQuery("#vvalabil").val(jQuery("#_voucher_valability").val());
+            var formpv = jQuery('<form>', {
+                "id": "form_prev_voucher",
+                "html": jQuery("#div_prev_voucher").html(),
+                "action": "/rpk/voucher.php",
+                "method": "POST",
+                "target": "VoucherPreview"
+            }).appendTo(document.body);
+            prevoucher = window.open("", "VoucherPreview", "width=800,height=600,resizable=yes");
+            formpv.submit();
+        }
+
+        btnvpreview.click(function(e){
+            e.preventDefault();
+            previewvoucher();
+        });
+        
+        </script>
+        
+        <div id="div_prev_voucher"  style="display:none" action= method="POST" target="VoucherPreview">
+            <input type="hidden" id="vintro" name="intro"/>
+            <input type="hidden" id="vdesc" name="description"/>
+            <input type="hidden" id="voutro" name="outro"/>
+            <input type="hidden" id="vsupplier" name="supplier"/>
+            <input type="hidden" id="vvalabil" name="valability"/>
+            <input type="hidden" name="preview" value="true"/>
+        </div>
+
+RPK;
+        echo $script;
+		woocommerce_wp_textarea_input( array( 
+			'id'            => '_voucher_intro', 
+			'wrapper_class' => 'show_if_simple', 
+			'label'         => __( 'Intro', 'my_text_domain' ),
+			'description'   => __( 'Voucher intro formula', 'my_text_domain' ),
+			'desc_tip'    	=> false,
+		) );
+        
+        $product = wc_get_product($post->ID);
+        $content  = $product->get_meta( '_voucher_desc' );
+        
+        $options = array(
+            'textarea_rows' => 6,
+        );
+        wp_editor( stripslashes( $content ), '_voucher_desc', $options );
+        woocommerce_wp_textarea_input( array( 
+			'id'            => '_voucher_outro', 
+			'wrapper_class' => 'show_if_simple', 
+			'label'         => __( 'Outro', 'my_text_domain' ),
+			'description'   => __( 'Voucher outro formula', 'my_text_domain' ),
+			'desc_tip'    	=> false,
+		) );
+        woocommerce_wp_textarea_input( array( 
+			'id'            => '_voucher_supplier', 
+			'wrapper_class' => 'show_if_simple', 
+			'label'         => __( 'Experiences details', 'my_text_domain' ),
+			'description'   => __( 'Info about experiences on the voucher and suppliers info', 'my_text_domain' ),
+			'desc_tip'    	=> false,
+		) );
+        woocommerce_wp_text_input( array( 
+			'id'            => '_voucher_valability', 
+			'wrapper_class' => 'show_if_simple', 
+			'label'         => __( 'Valability', 'my_text_domain' ),
+			'description'   => __( 'Voucher valability info', 'my_text_domain' ),
+			'desc_tip'    	=> false,
+		) );
+        $vexperiences  = $product->get_meta( '_voucher_experiences' );
+        $dataid = 0;
+        if(!empty($vexperiences)){
+            $vexperiences = json_decode($vexperiences,true);
+            $nestedids = [];
+            
+            $expHTML = '';
+            foreach($vexperiences as $exp){
+                $nestedids[$dataid] = [];
+                $expHTML .= '<li>';
+                $expHTML .= '<input class="ddexp" type="text" name="exp['.$dataid.'][name]" value="'. $exp['name'] .'">';
+                if(0 == $dataid){
+                    $expHTML .= '<a href="#!" class="addexp" onclick="addme(this, \'experiences_tpl\')">add</a>';
+                }else{
+                    $expHTML .= '<a href="#!" class="delexp" onclick="removeme(this, 0)">del</a>';
+                }
+                                
+                $expHTML .= '<ul data-id="'.$dataid.'" id="nested" class="nested" style="padding-left: 10px;margin-top: -30px;">';
+                foreach ($exp['exp'] as $subexp){
+                    $idx = 0;
+                    $expHTML .= '<li>';
+                    $expHTML .= '<input class="subexpname" type="text" name="exp['.$dataid.'][exp]['.$idx.'][name]" value="'. $subexp['name'] .'">';
+                    $expHTML .= '<input class="subexpsup" type="text" name="exp['.$dataid.'][exp]['.$idx.'][supplier]" value="'. $subexp['supplier'] .'">';
+                    if(0 == $dataid){
+                        $expHTML .= '<a href="#!" class="addsupexp" onclick="addme(this, \'nested_tpl\')">add</a>';
+                    }
+                    else{
+                        $expHTML .= '<a href="#!" class="addsupexp" onclick="addme(this, \'nested_tpl\')">add</a> ';
+                        $expHTML .= '<a href="#!" class="delsupexp" onclick="removeme(this, 1)">del</a>';
+                    }
+                    
+                    $expHTML .= '</li>';
+                    $nestedids[$dataid][] = $idx;
+                    $idx++;
+                }
+                $expHTML .= '</ul>';
+                $expHTML .= '</li>';
+                $dataid++;
+            }
+            $dataid--;
+        }else{
+            $nestedids = [
+                0 => [0]
+            ];
+            $expHTML = <<<RPK
+                <li>
+                    <input class="ddexp" type="text" name="exp[0][name]" placeholder="exp dropdown">
+                    <a href="#!" class="addexp" onclick="addme(this, 'experiences_tpl')">add</a>
+                    <ul data-id="0" id="nested" class="nested" style="padding-left: 10px;margin-top: -30px;">
+                        <li>
+                            <input class="subexpname" type="text" name="exp[0][exp][0][name]" placeholder="name">
+                            <input class="subexpsup" type="text" name="exp[0][exp][0][supplier]" placeholder="supplier">
+                            <a href="#!" class="addsupexp" onclick="addme(this, 'nested_tpl')">add</a>
+                        </li>
+                    </ul>
+                </li>
+RPK;
+        }
+        $jsonNestedIds = json_encode($nestedids);
+        
+        $htmlExp =  <<<RPK
+        <div class="form-field experiences">
+            <ul data-id="0" id="experiences">
+            $expHTML
+            </ul>
+        </div>
+RPK;
+        $htmlExpConfig =  <<<RPK
+        <div style="display: none;">
+            <ul data-id="rpkid">
+                <li id="experiences_tpl">
+                    <input class="ddexp" type="text" name="exp[rpkid][name]" placeholder="exp dropdown">
+                    <a href="#!" class="delexp" onclick="removeme(this, 0)">del</a>
+                    <ul data-id="rpkid" class="nested">
+                        <li id="nested_tpl">
+                            <input class="subexpname" type="text" name="exp[rpkid][exp][rpksubid][name]" placeholder="name">
+                            <input class="subexpsup" type="text" name="exp[rpkid][exp][rpksubid][supplier]" placeholder="supplier">
+                            <a href="#!" class="addsupexp" onclick="addme(this, 'nestedtpl')">add</a>
+                            <a href="#!" class="delsupexp" onclick="removeme(this, 1)">del</a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        <style>
+        #experiences, .nested { 
+            padding: 0;
+            display: grid;
+            width: 80%;
+            margin: auto;
+          }
+          
+          #experiences li{
+            display: block;
+          }
+          
+          .nested li {
+            display: block;
+            border: 1px solid #CCC;
+            padding: 5px 10px;
+            float: left;
+          }
+          </style>
+        <script>
+
+            var id = $dataid;
+            var nestedids = $jsonNestedIds;
+
+            function addme(el, tplid){
+                var idx, mainidx;
+                var parent = jQuery(el).closest("ul");
+                if(tplid == 'experiences_tpl'){
+                    idx = 0;
+                    id++;
+                    nestedids[id] = [0];
+                    mainidx = id;
+                }else{
+                    tplid = 'nested_tpl';
+                    mainidx = parent.data('id');
+                    idx = nestedids[mainidx].length;
+                    nestedids[mainidx].push(idx);
+                }
+                
+                var toappend = jQuery('#'+tplid).clone();
+                toappend.removeAttr('id');
+                var html = document.getElementById(tplid).innerHTML;
+                html = html.replace(/nested_tpl/g, 'nested_tpl'+mainidx+idx);
+                html = html.replace(/rpkid/g, mainidx);
+                html = html.replace(/rpksubid/g, idx);
+                toappend.html(html);
+                parent.append(toappend);
+                return false; //prevent going top
+            }
+
+            function removeme(el,child){
+                var idx, mainidx;
+                var parent = jQuery(el).closest("li");
+                // mainidx = parent.closest("ul").data('id');
+                if(child == 1){
+                    // nestedids[mainidx].pop();
+                }else{
+                    delete nestedids[id];
+                    // id--;
+                }
+                parent.remove();
+                return false; //prevent going top
+            }
+        </script>
+RPK;
+
+        echo $htmlExp;
+        echo $htmlExpConfig;
+        echo '<a href="javascript:void();" style="margin: 10px;" onclick="previewvoucher();" id="btn_preview_voucher" class="button save_voucher button-primary">preview voucher</a>';
+        echo '<br>';
+		?>
+	</div>
+	<?php
+
+}
+
+add_action('woocommerce_process_product_meta', function($post_id) {
+    $product = wc_get_product($post_id);
+    
+    $product->update_meta_data('_voucher_intro', $_POST['_voucher_intro']);
+    $product->update_meta_data('_voucher_desc', $_POST['_voucher_desc']);
+    $product->update_meta_data('_voucher_outro', $_POST['_voucher_outro']);
+    $product->update_meta_data('_voucher_supplier', $_POST['_voucher_supplier']);
+    $product->update_meta_data('_voucher_valability', $_POST['_voucher_valability']);
+    $vexperiences = $_POST['exp'];
+    if(is_array($vexperiences)){
+        unset($vexperiences['rpkid']);
+        $product->update_meta_data('_voucher_experiences', json_encode($vexperiences));
+    }
+    
+    $product->save();
+});
+
+//---RPK END---//
+
+
+//**Redirect Subscriptions Shop URL**//
+add_action( 'wp', 'init' );
+function init() {
+    if( is_account_page() ){
+        add_filter( 'woocommerce_return_to_shop_redirect', 'change_return_shop_url' );
+            function change_return_shop_url() {
+                return 'https://complice.ro/abonamente/';   
+            }   
+    }
+}
